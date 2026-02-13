@@ -13,7 +13,7 @@
         }
 
         body {
-            background: linear-gradient(to bottom, #1a0000, #000000);
+            background: #000000;
             font-family: 'Courier New', monospace;
             overflow: hidden;
             touch-action: none;
@@ -24,7 +24,7 @@
 
         #gameCanvas {
             display: block;
-            background: radial-gradient(circle at 50% 50%, #2d0000, #000000);
+            background: #000000;
             touch-action: none;
             position: absolute;
             top: 50%;
@@ -365,6 +365,56 @@
             playing: false
         };
 
+        // Sistema de cores por nível
+        const colorThemes = {
+            1: { primary: '#ff4400', secondary: '#ff0000', name: 'Vermelho Infernal', bg: '#1a0000' },
+            2: { primary: '#ff00ff', secondary: '#aa00ff', name: 'Roxo Místico', bg: '#1a001a' },
+            3: { primary: '#ffff00', secondary: '#ffaa00', name: 'Amarelo Radiante', bg: '#1a1a00' },
+            4: { primary: '#00ff00', secondary: '#00aa00', name: 'Verde Tóxico', bg: '#001a00' },
+            5: { primary: '#00ffff', secondary: '#0088ff', name: 'Azul Gélido', bg: '#001a1a' },
+            6: { primary: '#ff0088', secondary: '#ff0044', name: 'Rosa Demoníaco', bg: '#1a0010' },
+            7: { primary: '#ff8800', secondary: '#ff4400', name: 'Laranja Flamejante', bg: '#1a0f00' },
+            8: { primary: '#8800ff', secondary: '#4400ff', name: 'Violeta Sombrio', bg: '#0f001a' },
+            9: { primary: '#00ff88', secondary: '#00aa44', name: 'Verde Neon', bg: '#001a0f' },
+            10: { primary: '#ff0000', secondary: '#880000', name: 'Vermelho Sangue', bg: '#1a0000' }
+        };
+
+        function getCurrentTheme() {
+            const themeIndex = ((gameState.level - 1) % 10) + 1;
+            return colorThemes[themeIndex];
+        }
+
+        function updateThemeColors() {
+            const theme = getCurrentTheme();
+            
+            // Atualizar UI
+            const uiElements = document.querySelectorAll('#ui, #ui div, #ui span');
+            uiElements.forEach(el => {
+                el.style.color = theme.primary;
+                el.style.textShadow = `0 0 10px ${theme.primary}, 0 0 20px ${theme.secondary}`;
+            });
+            
+            // Atualizar controles
+            const controls = document.querySelectorAll('.control-btn');
+            controls.forEach(btn => {
+                btn.style.background = `rgba(${hexToRgb(theme.primary)}, 0.3)`;
+                btn.style.borderColor = theme.primary;
+                btn.style.color = theme.primary;
+                btn.style.boxShadow = `0 0 20px rgba(${hexToRgb(theme.primary)}, 0.5)`;
+            });
+            
+            // Atualizar cor do jogador
+            player.color = theme.primary;
+            player.secondaryColor = theme.secondary;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? 
+                `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
+                : '255, 68, 0';
+        }
+
         // Jogador
         const player = {
             x: canvas.width / 2,
@@ -372,7 +422,8 @@
             width: 40,
             height: 40,
             speed: 5,
-            color: '#00ff00'
+            color: '#ff4400',
+            secondaryColor: '#ff0000'
         };
 
         // Arrays
@@ -442,7 +493,8 @@
                 this.width = 4;
                 this.height = 15;
                 this.speed = 8;
-                this.color = '#ffff00';
+                const theme = getCurrentTheme();
+                this.color = theme.primary;
             }
 
             update() {
@@ -467,7 +519,9 @@
                 this.speed = 1 + gameState.level * 0.2;
                 this.type = type;
                 this.health = type === 'boss' ? 5 : 1;
-                this.color = type === 'boss' ? '#ff0000' : '#ff4400';
+                const theme = getCurrentTheme();
+                // Inimigos usam a cor secundária do tema
+                this.color = type === 'boss' ? theme.secondary : theme.primary;
                 this.movePattern = Math.random() * Math.PI * 2;
             }
 
@@ -489,7 +543,8 @@
                 ctx.fill();
                 
                 // Chifres
-                ctx.fillStyle = '#880000';
+                ctx.fillStyle = this.type === 'boss' ? '#000000' : this.color;
+                ctx.globalAlpha = 0.7;
                 ctx.beginPath();
                 ctx.moveTo(this.x - 15, this.y - 15);
                 ctx.lineTo(this.x - 10, this.y - 25);
@@ -501,9 +556,10 @@
                 ctx.lineTo(this.x + 10, this.y - 25);
                 ctx.lineTo(this.x + 5, this.y - 15);
                 ctx.fill();
+                ctx.globalAlpha = 1;
                 
                 // Olhos
-                ctx.fillStyle = '#ffff00';
+                ctx.fillStyle = '#000000';
                 ctx.fillRect(this.x - 8, this.y - 5, 5, 8);
                 ctx.fillRect(this.x + 3, this.y - 5, 5, 8);
                 
@@ -511,9 +567,9 @@
 
                 // Barra de vida para boss
                 if (this.type === 'boss') {
-                    ctx.fillStyle = '#ff0000';
+                    ctx.fillStyle = '#000000';
                     ctx.fillRect(this.x - 20, this.y - 30, 40, 5);
-                    ctx.fillStyle = '#00ff00';
+                    ctx.fillStyle = this.color;
                     ctx.fillRect(this.x - 20, this.y - 30, 40 * (this.health / 5), 5);
                 }
             }
@@ -584,6 +640,7 @@
                             if (gameState.score % 200 === 0) {
                                 gameState.level++;
                                 playSound('levelup');
+                                updateThemeColors();
                                 document.getElementById('level').textContent = gameState.level;
                             }
                         } else {
@@ -664,8 +721,8 @@
 
         function drawPlayer() {
             ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00ff00';
-            ctx.fillStyle = '#00ff00';
+            ctx.shadowColor = player.color;
+            ctx.fillStyle = player.color;
             
             // Nave
             ctx.beginPath();
@@ -677,24 +734,42 @@
             ctx.fill();
             
             // Motor
-            ctx.fillStyle = '#ffaa00';
+            ctx.fillStyle = player.secondaryColor;
             ctx.fillRect(player.x - 5, player.y + 15, 10, 10);
             
             ctx.shadowBlur = 0;
         }
 
         function drawBackground() {
-            // Estrelas em movimento
-            ctx.fillStyle = '#ffffff';
+            const theme = getCurrentTheme();
+            
+            // Fundo com gradiente sutil do tema
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, canvas.width
+            );
+            gradient.addColorStop(0, theme.bg);
+            gradient.addColorStop(1, '#000000');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Estrelas em movimento com cor do tema
+            ctx.fillStyle = theme.primary;
+            ctx.shadowBlur = 3;
+            ctx.shadowColor = theme.primary;
             for (let i = 0; i < 50; i++) {
                 const x = (i * 37) % canvas.width;
                 const y = ((Date.now() * 0.05 + i * 53) % canvas.height);
+                ctx.globalAlpha = 0.3 + (Math.sin(Date.now() * 0.001 + i) * 0.3);
                 ctx.fillRect(x, y, 2, 2);
             }
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
         }
 
         function draw() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            // Limpar com preto sólido
+            ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             drawBackground();
@@ -730,6 +805,9 @@
             document.getElementById('score').textContent = gameState.score;
             document.getElementById('level').textContent = gameState.level;
             document.getElementById('gameOver').style.display = 'none';
+            
+            // Aplicar cores do tema inicial
+            updateThemeColors();
             
             // Iniciar música de fundo
             if (audioContext.state === 'suspended') {
